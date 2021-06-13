@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_compile_options(-Wall -pedantic)
 
-add_executable(${CMAKE_PROJECT_NAME} output.cpp parser.tab.cpp lex.yy.c AST.cpp SymbolTable.cpp bp.cpp)
+add_executable(${CMAKE_PROJECT_NAME} output.cpp parser.tab.cpp lex.yy.c AST.cpp SymbolTable.cpp bp.cpp CodeGeneration.cpp CodeGeneration.h)
 
 add_custom_command(
         # Generates Flex file
