@@ -1,0 +1,180 @@
+%{
+#include <iostream>
+#include <string>
+#include "output.hpp"
+using namespace std;
+#include "AST.hpp"
+#define YYSTYPE AST::Node*
+int yylex();
+void yyerror(const char*);
+extern int yylineno;
+void assert_byte_size(const string &num);
+%}
+
+%define parse.trace
+/* BISON Declarations */
+%token VOID
+%token ID
+%token INT
+%token BYTE
+%token B
+%token BOOL
+%token TRUE
+%token FALSE
+%token RETURN
+%nonassoc IF
+%nonassoc ELSE
+%token WHILE
+%token BREAK
+%token CONTINUE
+%token SWITCH
+%token DEFAULT
+%token CASE
+%token COLON
+%token SC
+%token COMMA
+%token NUM
+%token STRING
+%token END
+%right ASSIGN
+%left OR
+%left AND
+%left EQOP
+%nonassoc RELOP
+%left BINOP_ADDITIVE
+%left BINOP_MULTIPLICATIVE
+%right CASTING
+%right NOT
+%left LPAREN
+%left RPAREN
+%left LBRACE
+%left RBRACE
+
+/* Grammar Rules */
+%%
+Program:            Funcs END                  { $$ = new AST::ProgramNode( unique_ptr<AST::Node>{ $1 } ); }
+;
+Funcs:              /*epsilon*/                { $$ = new AST::FuncsNode(); }
+                    |  FuncImpl Funcs          { $$ = new AST::FuncsNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
+;
+FuncImpl:           FuncSign LBRACE Statements RBRACE
+                    { $$ = new AST::FuncsImplNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+;
+FuncSign:            RetType ID LPAREN Formals RPAREN
+                                               { $$ = new AST::FuncsSignNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
+;
+RetType:            Type                       { $$ = new AST::RetTypeNode(unique_ptr<AST::Node>{ $1 }); }
+                    | VOID                     { $$ = new AST::RetTypeNode(); }
+;
+Formals:            /*epsilon*/                { $$ = new AST::FormalsNode(); }
+                    | FormalsList              { $$ = new AST::FormalsNode(unique_ptr<AST::Node>{ $1 }); }
+;
+FormalsList:        FormalDecl                 { $$ = new AST::FormalsListNode(unique_ptr<AST::Node>{ $1 }); }
+                    | FormalDecl COMMA FormalsList      { $$ = new AST::FormalsListNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+;
+FormalDecl:         Type ID                    { $$ = new AST::FormalDeclNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
+;
+Statements:         Statement                  { $$ = new AST::StatementsNode(unique_ptr<AST::Node>{ $1 }); }
+                    | Statements Statement     { $$ = new AST::StatementsNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
+;
+Statement:          LBRACE OpenScope Statements CloseScope RBRACE
+                                               { $$ = new AST::StatementToStatementsNode(unique_ptr<AST::Node>{ $3 }); }
+                    | Type ID SC               { $$ = new AST::StatementDeclareVariableNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
+                    | Type ID ASSIGN Exp SC    { $$ = new AST::StatementDeclareVariableNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
+                    | ID ASSIGN Exp SC         { $$ = new AST::StatementAssignNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                    | Call SC                  { $$ = $1; }
+                    | RETURN SC                { $$ = new AST::StatementReturnNode(); }
+                    | RETURN Exp SC            { $$ = new AST::StatementReturnNode(unique_ptr<AST::Node>{ $2 }); }
+                    | IfDecl OpenScope Statement CloseScope      %prec IF
+                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                    | IfDecl OpenScope Statement CloseScope ELSE OpenScope Statement CloseScope     %prec ELSE
+                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }, unique_ptr<AST::Node>{ $7 }); }
+                    | WhileDecl EnterWhile Statement ExitWhile
+                                               { $$ = new AST::StatementWhileNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                    | BREAK SC                 { $$ = new AST::StatementBreakContinue("break"); }
+                    | CONTINUE SC              { $$ = new AST::StatementBreakContinue("continue"); }
+                    | SwitchDecl LBRACE EnterSwitch CaseList ExitSwitch RBRACE
+                                               { $$ = new AST::StatementSwitchNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $4 }); }
+;
+IfDecl:             IF LPAREN  Exp RPAREN      { $$ = new AST::IfDeclNode(unique_ptr<AST::Node>{ $3 }); }
+;
+WhileDecl:          WHILE LPAREN Exp RPAREN    { $$ = new AST::WhileDeclNode(unique_ptr<AST::Node>{ $3 }); }
+;
+SwitchDecl:         SWITCH LPAREN Exp RPAREN   { $$ = new AST::SwitchDeclNode(unique_ptr<AST::Node>{ $3 }); }
+;
+Call:           ID LPAREN ExpList RPAREN       { $$ = new AST::CallNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                | ID LPAREN RPAREN             { $$ = new AST::CallNode(unique_ptr<AST::Node>{ $1 }); }
+;
+ExpList:            Exp                        { $$ = new AST::ExpListNode(unique_ptr<AST::Node>{ $1 }); }
+                    | Exp COMMA ExpList        { $$ = new AST::ExpListNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+;
+Type:           INT                            { $$ = new AST::TypeNode(AST::Type::INT); }
+                | BYTE                         { $$ = new AST::TypeNode(AST::Type::BYTE); }
+                | BOOL                         { $$ = new AST::TypeNode(AST::Type::BOOL); }
+;
+Exp:            LPAREN Exp RPAREN              { $$ = $2; }
+                | Exp BINOP_ADDITIVE Exp       { $$ = new AST::BinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                          unique_ptr<AST::Node>{ $2 },
+                                                                          unique_ptr<AST::Node>{ $3 } ); }
+                | Exp BINOP_MULTIPLICATIVE Exp { $$ = new AST::BinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                          unique_ptr<AST::Node>{ $2 },
+                                                                          unique_ptr<AST::Node>{ $3 } ); }
+                | ID                           { $$ = new AST::IDExp(unique_ptr<AST::Node>{ $1 }); }
+                | Call                         { $$ = $1; }
+                | NUM                          { $1->type = AST::Type::INT; $$ = $1; }
+                | NUM B                        { $1->type = AST::Type::BYTE; assert_byte_size($1->name) ; $$ = $1; }
+                | STRING                       { $$ = $1; }
+                | TRUE                         { $$ = new AST::LiteralNode("true", AST::Type::BOOL); }
+                | FALSE                        { $$ = new AST::LiteralNode("false", AST::Type::BOOL); }
+                | NOT Exp                      { $$ = new AST::NotNode( unique_ptr<AST::Node>{ $2 }); }
+                | Exp AND Exp                  { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ new AST::IDNode("and") },
+                                                                              unique_ptr<AST::Node>{ $3 } ); }
+                | Exp OR Exp                   { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ new AST::IDNode("or") },
+                                                                              unique_ptr<AST::Node>{ $3 } ); }
+                | Exp RELOP Exp                { $$ = new AST::RelOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ $2 },
+                                                                              unique_ptr<AST::Node>{ $3 } ); }
+                | Exp EQOP Exp                 { $$ = new AST::RelOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ $2 },
+                                                                              unique_ptr<AST::Node>{ $3 } ); }
+;
+CaseList:           CaseDecl CaseList          { $$ = new AST::CaseListNode( unique_ptr<AST::Node>{ $1 },
+                                                                             unique_ptr<AST::Node>{ $2 } ); }
+                    | CaseDecl                 { $$ = new AST::CaseListNode(unique_ptr<AST::Node>{ $1 }); }
+                    | DEFAULT COLON Statements { $$ = new AST::DefaultCaseNode(unique_ptr<AST::Node>{ $3 }); }
+;
+CaseDecl:           CASE NUM COLON Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $4 }); }
+;
+OpenScope:           /*epsilon*/               { SymbolTable::getInstance().OpenScope(); }
+;
+CloseScope:           /*epsilon*/              { SymbolTable::getInstance().CloseScope(); }
+;
+EnterWhile:           OpenScope                { ++AST::while_count; }
+;
+ExitWhile:            CloseScope               { --AST::while_count; }
+;
+EnterSwitch:          OpenScope                { ++AST::switch_count; }
+;
+ExitSwitch:           CloseScope               { --AST::switch_count; }
+;
+%%
+
+void yyerror(const char*){
+    output::errorSyn(yylineno);
+    exit(1);
+}
+
+void assert_byte_size(const string &num) {
+    if(stoi(num) > 255) {
+        output::errorByteTooLarge(yylineno, num);
+        exit(1);
+    }
+}
+
+int main() {
+    //yydebug=1;
+    return yyparse();
+}
+

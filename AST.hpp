@@ -1,0 +1,243 @@
+#ifndef _AST_H
+#define _AST_H
+
+#include <string>
+#include <vector>
+#include <memory>
+#include <utility>
+#include "SymbolTable.hpp"
+
+using std::unique_ptr;
+using std::move;
+using std::vector;
+using std::string;
+
+
+
+namespace AST {
+
+    using Type = SymbolTable::Type;
+
+    class Node {
+    protected:
+        Node(Type type, string name): type(type), name(move(name)) {}
+    public:
+        virtual ~Node() = default;
+        Type type;
+        string name;
+        vector<unique_ptr<Node>> children;
+    };
+
+    class ProgramNode : public Node {
+        public:
+        explicit ProgramNode(unique_ptr<Node> funcs);
+        ~ProgramNode() override = default;
+    };
+
+    class FuncsNode : public Node {
+        public:
+        FuncsNode();
+        FuncsNode(unique_ptr<Node> funcsImpl, unique_ptr<Node> funcs);
+        ~FuncsNode() override = default;
+    };
+
+    class FuncsSignNode : public Node {
+    public:
+        FuncsSignNode(unique_ptr<Node> retType, unique_ptr<Node> id, unique_ptr<Node> formals);
+        ~FuncsSignNode() override = default;
+    };
+
+    class FuncsImplNode : public Node {
+        public:
+        FuncsImplNode(unique_ptr<Node> decl_node, unique_ptr<Node> statements);
+        ~FuncsImplNode() override = default;
+    };
+
+    class RetTypeNode : public Node {
+        public:
+        RetTypeNode();
+        explicit RetTypeNode(unique_ptr<Node> type_node);
+        ~RetTypeNode() override = default;
+    };
+
+    class FormalsNode : public Node {
+        public:
+        FormalsNode();
+        explicit FormalsNode(unique_ptr<Node> formals_list);
+        ~FormalsNode() override = default;
+    };
+    
+    class FormalsListNode : public Node {
+        public:
+        explicit FormalsListNode(unique_ptr<Node> formal_decl);
+        FormalsListNode(unique_ptr<Node> formal_decl, unique_ptr<Node> formals_list);
+        ~FormalsListNode() override = default;
+    };
+    
+    class FormalDeclNode : public Node {
+        public:
+        FormalDeclNode(unique_ptr<Node> type_node, unique_ptr<Node> id);
+        ~FormalDeclNode() override = default;
+    };
+
+    class StatementsNode : public Node {
+        public:
+        explicit StatementsNode(unique_ptr<Node> Statement);
+        StatementsNode(unique_ptr<Node> Statements, unique_ptr<Node> Statement);
+        ~StatementsNode() override = default;
+    };
+
+    class StatementToStatementsNode : public Node {
+        public:
+        explicit StatementToStatementsNode(unique_ptr<Node> Statements);
+        ~StatementToStatementsNode() override = default;
+    };
+
+    class StatementDeclareVariableNode : public Node {
+        public:
+        StatementDeclareVariableNode(unique_ptr<Node> type_node, unique_ptr<Node> id);
+        StatementDeclareVariableNode(unique_ptr<Node> type_node, unique_ptr<Node> id, unique_ptr<Node> exp);
+        ~StatementDeclareVariableNode() override = default;
+    };
+
+    class StatementAssignNode : public Node {
+        public:
+        StatementAssignNode(unique_ptr<Node> id, unique_ptr<Node> exp);
+        ~StatementAssignNode() override = default;
+    };
+
+    class StatementReturnNode : public Node {
+        public:
+        StatementReturnNode();
+        explicit StatementReturnNode(unique_ptr<Node> exp);
+        ~StatementReturnNode() override = default;
+    };
+
+    class StatementIfElseNode : public Node {
+        public:
+        StatementIfElseNode(unique_ptr<Node> exp, unique_ptr<Node> statement);
+        StatementIfElseNode(unique_ptr<Node> exp, unique_ptr<Node> if_statement, unique_ptr<Node> else_statement);
+        ~StatementIfElseNode() override = default;
+    };
+
+    class StatementWhileNode : public Node {
+        public:
+        StatementWhileNode(unique_ptr<Node> exp, unique_ptr<Node> statement);
+        ~StatementWhileNode() override = default;
+    };
+
+    class StatementBreakContinue : public Node {
+        public:
+        explicit StatementBreakContinue(const string &break_or_continue);
+        ~StatementBreakContinue() override = default;
+    };
+
+    class StatementSwitchNode : public Node {
+        public:
+        StatementSwitchNode(unique_ptr<Node> exp, unique_ptr<Node> case_list);
+        ~StatementSwitchNode() override = default;
+    };
+
+    class IfDeclNode : public Node {
+    public:
+        explicit IfDeclNode(unique_ptr<Node> exp);
+        ~IfDeclNode() override = default;
+    };
+
+    class WhileDeclNode : public Node {
+    public:
+        explicit WhileDeclNode(unique_ptr<Node> exp);
+        ~WhileDeclNode() override = default;
+    };
+
+    class SwitchDeclNode : public Node {
+    public:
+        explicit SwitchDeclNode(unique_ptr<Node> exp);
+        ~SwitchDeclNode() override = default;
+    };
+
+    class CallNode : public Node {
+        public:
+        explicit CallNode(unique_ptr<Node> id_node);
+        CallNode(unique_ptr<Node> id_node, unique_ptr<Node> exp_list);
+        ~CallNode() override = default;
+    };
+
+    class ExpListNode : public Node {
+        public:
+        explicit ExpListNode(unique_ptr<Node> exp);
+        ExpListNode(unique_ptr<Node> exp, unique_ptr<Node> exp_list);
+        ~ExpListNode() override = default;
+    };
+
+    class TypeNode : public Node {
+        public:
+        explicit TypeNode(Type type);
+        ~TypeNode() override = default;
+    };
+
+    class BinOpNode : public Node {
+        public:
+        BinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
+        ~BinOpNode() override = default;
+    };
+
+    class BoolBinOpNode : public Node {
+        public:
+        BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
+        ~BoolBinOpNode() override = default;
+    };
+
+    class RelOpNode : public Node {
+    public:
+        RelOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
+        ~RelOpNode() override = default;
+    };
+
+    class IDNode : public Node {
+        public:
+        explicit IDNode(string name);
+        ~IDNode() override = default;
+    };
+
+    class IDExp : public Node {
+    public:
+        explicit IDExp(unique_ptr<Node> id);
+        ~IDExp() override = default;
+    };
+
+    class LiteralNode : public Node {
+        public:
+        LiteralNode(string name, Type type);
+        ~LiteralNode() override = default;
+    };
+
+    class NotNode : public Node {
+        public:
+        explicit NotNode(unique_ptr<Node> exp);
+        ~NotNode() override = default;
+    };
+
+    class CaseListNode : public Node {
+    public:
+        explicit CaseListNode(unique_ptr<Node> case_decl);
+        CaseListNode(unique_ptr<Node> case_decl, unique_ptr<Node> case_list);
+        ~CaseListNode() override = default;
+    };
+
+    class DefaultCaseNode : public Node {
+    public:
+        explicit DefaultCaseNode(unique_ptr<Node> statements);
+        ~DefaultCaseNode() override = default;
+    };
+
+    class CaseDeclNode : public Node {
+    public:
+        explicit CaseDeclNode(unique_ptr<Node> statements);
+        ~CaseDeclNode() override = default;
+    };
+
+    extern int switch_count;
+    extern int while_count;
+}
+#endif
