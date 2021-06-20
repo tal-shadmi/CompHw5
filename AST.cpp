@@ -1,7 +1,9 @@
 #include "AST.hpp"
 #include <algorithm>
 #include "output.hpp"
+#include <sstream>
 //#include "PrintTree.hpp"
+#include "CodeGeneration.hpp"
 
 extern int yylineno;
 
@@ -44,6 +46,7 @@ namespace AST {
         SymbolTable::getInstance().CloseScope();
         /*auto printer = Printer{};
         printer.walk(this, "");*/
+        CodeBuffer::instance().printCodeBuffer();
     }
 
     FuncsNode::FuncsNode() : Node(Type::VOID, "Funcs") {}
@@ -145,7 +148,7 @@ namespace AST {
         auto &st = SymbolTable::getInstance();
         vector<SymbolTable::Type> type = st.FindID(id->name);
         if (type.empty()) {
-            st.AddVariable(id->name, type_node->type);
+            st.AddVariable(id->name, type_node->type, ""); // TODO : add register name
         }
         else {
             output::errorDef(yylineno, id->name);
@@ -163,7 +166,7 @@ namespace AST {
         auto &st = SymbolTable::getInstance();
         vector<SymbolTable::Type> type = st.FindID(id->name);
         if (type.empty()) {
-            st.AddVariable(id->name, type_node->type);
+            st.AddVariable(id->name, type_node->type, ""); // TODO : add register name
         }
         else {
             output::errorDef(yylineno, id->name);
@@ -224,10 +227,10 @@ namespace AST {
     }
 
     StatementBreakContinue::StatementBreakContinue(const string &break_or_continue) : Node(Type::VOID, break_or_continue + " statement") {
-        if(break_or_continue == "break" && while_count <= 0 && switch_count <= 0) {
+        if (break_or_continue == "break" && while_count <= 0 && switch_count <= 0) {
             output::errorUnexpectedBreak(yylineno);
             exit(1);
-        } else if(break_or_continue == "continue" && while_count <= 0) {
+        } else if (break_or_continue == "continue" && while_count <= 0) {
             output::errorUnexpectedContinue(yylineno);
             exit(1);
         }
@@ -333,11 +336,15 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        this->result_reg = CodeGen::arithmetic(op->name, type == Type::INT? 32: 8, exp1->value(), exp2->value());
         children.push_back(move(exp1));
         children.push_back(move(op));
         children.push_back(move(exp2));
     }
 
+    string BinOpNode::value() {
+        return result_reg;
+    }
 
     RelOpNode::RelOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2)
     : Node(Type::BOOL, "Relational operator"){
@@ -412,4 +419,18 @@ namespace AST {
         this->type = type[0];
     }
 
+    MNode::MNode() : Node(Type::VOID, "M") {
+        this->label = CodeBuffer::instance().genLabel();
+    }
+
+    NNode::NNode() : Node(Type::VOID, "N") {
+        auto &buffer = CodeBuffer::instance();
+        int loc = buffer.emit("br label @");
+        this->nextList = CodeBuffer::makelist({loc, FIRST});
+    }
+
+
+    string Node::value() {
+        return "";
+    }
 }

@@ -16,10 +16,11 @@ public:
 
 private:
 
-    struct Entry{
+    struct Entry {
         string name;
         vector<Type> type;
         int offset;
+        string register_name;
     };
 
     using Table=vector<Entry>;
@@ -36,7 +37,7 @@ public:
 
     void AddFunction(string name, vector<Type> types);
 
-    void AddVariable(string name, Type type);
+    void AddVariable(string name, Type type, string register_name);
 
     void AddArgument(string name, Type type);
 

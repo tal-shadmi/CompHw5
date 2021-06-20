@@ -62,9 +62,9 @@ void SymbolTable::AddFunction(string name, vector<Type> types) {
 }
 
 
-void SymbolTable::AddVariable(string name, Type type) {
+void SymbolTable::AddVariable(string name, Type type, string register_name) {
     auto offset = offsets_stack.back()++;
-    tables_stack.back().push_back( Entry{ move(name), { type }, offset } );
+    tables_stack.back().push_back( Entry{ move(name), { type }, offset, move(register_name) } );
 }
 
 void SymbolTable::AddArgument(string name, Type type) {
