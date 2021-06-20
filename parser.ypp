@@ -147,7 +147,7 @@ CaseList:           CaseDecl CaseList          { $$ = new AST::CaseListNode( uni
 ;
 CaseDecl:           CASE NUM COLON Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $4 }); }
 ;
-OpenScope:           /*epsilon*/               { SymbolTable::getInstance().OpenScope(); }
+OpenScope:            /*epsilon*/              { SymbolTable::getInstance().OpenScope(); }
 ;
 CloseScope:           /*epsilon*/              { SymbolTable::getInstance().CloseScope(); }
 ;
@@ -158,6 +158,10 @@ ExitWhile:            CloseScope               { --AST::while_count; }
 EnterSwitch:          OpenScope                { ++AST::switch_count; }
 ;
 ExitSwitch:           CloseScope               { --AST::switch_count; }
+;
+M:                    /*epsilon*/              { $$ = new AST::MNode(); }
+;
+N:                    /*epsilon*/              { $$ = new AST::MNode(); }
 ;
 %%
 

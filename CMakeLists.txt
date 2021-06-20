@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_compile_options(-Wall -pedantic)
 
-add_executable(${CMAKE_PROJECT_NAME} output.cpp parser.tab.cpp lex.yy.c AST.cpp SymbolTable.cpp bp.cpp CodeGeneration.cpp CodeGeneration.h)
+add_executable(${CMAKE_PROJECT_NAME} output.cpp parser.tab.cpp lex.yy.c AST.cpp SymbolTable.cpp bp.cpp CodeGeneration.cpp)
 
 add_custom_command(
         # Generates Flex file
@@ -24,35 +24,39 @@ add_custom_command(
         DEPENDS parser.ypp
 )
 
-#add_custom_command(
-#        # Copy executable to source folder
-#        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hw3
-#        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-#        COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME} ./hw5
-#        DEPENDS ${CMAKE_PROJECT_NAME}
-#)
-#
-#add_custom_target(
-#        # Build this target to run tests
-#        tests1
-#        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
-#        COMMAND ./run.bash
-#        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/hw3
-#)
+  # TESTS
 
+set(TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/hw5-tests)
 
-#add_custom_target(
-#        all-tests
-#)
-
-#add_dependencies(all-tests tests1 tests2 tests3 oy-tests whatsapp-tests)
+add_custom_command(
+        # Copy executable to test directory
+        OUTPUT ${TEST_DIRECTORY}/hw5
+        WORKING_DIRECTORY ${TEST_DIRECTORY}
+        COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME} ./hw5
+        DEPENDS ${CMAKE_PROJECT_NAME}
+)
 
 add_custom_target(
-        Clean
+        # Build this target to run tests (only build don't run)
+        TESTS
+        WORKING_DIRECTORY ${TEST_DIRECTORY}
+        COMMAND ./run.sh
+        DEPENDS ${TEST_DIRECTORY}/hw5
+)
+
+add_custom_target(
+        # Build this target to clean flex and bison output (only build don't run)
+        CleanFlexBisonFiles
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMAND rm -f lex.yy.c parser.tab.*pp hw3
+        COMMAND rm -f lex.yy.c parser.tab.*pp
+)
+
+add_custom_target(
+        # Build this target to clean test directory (only build don't run)
+        CleanTestsDir
+        WORKING_DIRECTORY ${TEST_DIRECTORY}
+        COMMAND rm -f *.res *.llvm hw5
 )
 
 # compile lex.yy.c as c++
 set_source_files_properties(lex.yy.c PROPERTIES LANGUAGE CXX )
-

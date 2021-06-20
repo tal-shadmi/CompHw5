@@ -6,6 +6,7 @@
 #include <memory>
 #include <utility>
 #include "SymbolTable.hpp"
+#include "bp.hpp"
 
 using std::unique_ptr;
 using std::move;
@@ -26,6 +27,7 @@ namespace AST {
         Type type;
         string name;
         vector<unique_ptr<Node>> children;
+        virtual string value();
     };
 
     class ProgramNode : public Node {
@@ -157,10 +159,12 @@ namespace AST {
     };
 
     class CallNode : public Node {
+        string result_reg;
         public:
         explicit CallNode(unique_ptr<Node> id_node);
         CallNode(unique_ptr<Node> id_node, unique_ptr<Node> exp_list);
         ~CallNode() override = default;
+//        string value() override;
     };
 
     class ExpListNode : public Node {
@@ -177,21 +181,29 @@ namespace AST {
     };
 
     class BinOpNode : public Node {
+        string result_reg;
         public:
         BinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
         ~BinOpNode() override = default;
+        string value() override;
     };
 
     class BoolBinOpNode : public Node {
+        BackpatchList true_list;
+        BackpatchList false_list;
         public:
         BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
         ~BoolBinOpNode() override = default;
+//        string value() override;
     };
 
     class RelOpNode : public Node {
+        BackpatchList true_list;
+        BackpatchList false_list;
     public:
         RelOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
         ~RelOpNode() override = default;
+//        string value() override;
     };
 
     class IDNode : public Node {
@@ -201,21 +213,27 @@ namespace AST {
     };
 
     class IDExp : public Node {
+        string result_reg;
     public:
         explicit IDExp(unique_ptr<Node> id);
         ~IDExp() override = default;
+//        string value() override;
     };
 
     class LiteralNode : public Node {
         public:
         LiteralNode(string name, Type type);
         ~LiteralNode() override = default;
+//        string value() override;
     };
 
     class NotNode : public Node {
+        BackpatchList true_list;
+        BackpatchList false_list;
         public:
         explicit NotNode(unique_ptr<Node> exp);
         ~NotNode() override = default;
+//        string value() override;
     };
 
     class CaseListNode : public Node {
@@ -235,6 +253,22 @@ namespace AST {
     public:
         explicit CaseDeclNode(unique_ptr<Node> statements);
         ~CaseDeclNode() override = default;
+    };
+
+    class MNode : public Node {
+    public:
+        string label;
+
+        explicit MNode();
+        ~MNode() override = default;
+    };
+
+    class NNode : public Node {
+    public:
+        BackpatchList nextList;
+
+        explicit NNode();
+        ~NNode() override = default;
     };
 
     extern int switch_count;
