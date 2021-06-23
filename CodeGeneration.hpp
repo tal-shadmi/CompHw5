@@ -12,9 +12,13 @@ namespace CodeGen {
 
     string getGlobalName();
 
-    string create_variable(const string &value);
+    string create_variable(const string &value, SymbolTable::Type type);
 
-    string load_variable(const string &register_name);
+    string create_global_string(const string &value);
+
+    void store_variable(const string &register_name, const string &value, SymbolTable::Type type);
+
+    string load_variable(const string &register_name, SymbolTable::Type type);
 
     string relop(const string &action, bool isSigned, const string &x, const string &y);
 

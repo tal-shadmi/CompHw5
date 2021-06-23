@@ -224,6 +224,7 @@ namespace AST {
     };
 
     class LiteralNode : public Node {
+        string global_variable;
         public:
         LiteralNode(string name, Type type);
         ~LiteralNode() override = default;

@@ -65,7 +65,7 @@ namespace AST {
     FuncsSignNode::FuncsSignNode(unique_ptr<Node> retType,
                                  unique_ptr<Node> id, unique_ptr<Node> formals) : Node(retType->type, "Function Signature") {
         auto &st = SymbolTable::getInstance();
-        if(!st.FindID(id->name).empty()){
+        if(!st.FindID(id->name).type.empty()){
             output::errorDef(yylineno, id->name);
             exit(1);
         }
@@ -78,7 +78,7 @@ namespace AST {
         st.AddFunction(id->name, types);
         st.OpenScope();
         for(auto &f : formals->children) {
-            if (!st.FindID(f->name).empty()){
+            if (!st.FindID(f->name).type.empty()){
                 output::errorDef(yylineno, f->name);
                 exit(1);
             }
@@ -149,7 +149,7 @@ namespace AST {
 
     StatementDeclareVariableNode::StatementDeclareVariableNode(unique_ptr<Node> type_node, unique_ptr<Node> id) : Node(Type::VOID, "declare new variable") {
         auto &st = SymbolTable::getInstance();
-        vector<SymbolTable::Type> type = st.FindID(id->name);
+        vector<SymbolTable::Type> type = st.FindID(id->name).type;
         if (type.empty()) {
             string reg_name = CodeGen::create_variable("0", type_node->type);
             st.AddVariable(id->name, type_node->type, reg_name);
@@ -168,7 +168,7 @@ namespace AST {
             exit(1);
         }
         auto &st = SymbolTable::getInstance();
-        vector<SymbolTable::Type> type = st.FindID(id->name);
+        vector<SymbolTable::Type> type = st.FindID(id->name).type;
         if (type.empty()) {
             string value = exp->value();
             if (type_node->type == Type::INT && exp->type == Type::BYTE) {
@@ -188,7 +188,9 @@ namespace AST {
 
     StatementAssignNode::StatementAssignNode(unique_ptr<Node> id, unique_ptr<Node> exp) : Node(id->type, "assign value to predeclared variable") {
         auto &st = SymbolTable::getInstance();
-        vector<SymbolTable::Type> type = st.FindID(id->name);
+        auto &entry = st.FindID(id->name);
+        const vector<SymbolTable::Type> &type = entry.type;
+        string value = exp->value();
         if (type.empty() || type.size() > 1) {
             output::errorUndef(yylineno, id->name);
             exit(1);
@@ -197,6 +199,10 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        if (entry.type[0] == Type::INT && exp->type == Type::BYTE) {
+            value = CodeGen::fromByteToInt(value);
+        }
+        CodeGen::store_variable(entry.register_name, value, type[0]);
         children.push_back(move(id));
         children.push_back(move(exp));
     }
@@ -277,7 +283,7 @@ namespace AST {
     CallNode::CallNode(unique_ptr<Node> id_node) : Node(Type::VOID, "Function Call")
     {
         auto &st = SymbolTable::getInstance();
-        vector<SymbolTable::Type> type = st.FindID(id_node->name);
+        const vector<SymbolTable::Type> &type = st.FindID(id_node->name).type;
         if (type.empty() || type.size() < 2) {
             output::errorUndefFunc(yylineno, id_node->name);
             exit(1);
@@ -296,7 +302,7 @@ namespace AST {
     CallNode::CallNode(unique_ptr<Node> id_node, unique_ptr<Node> exp_list)  : Node(Type::VOID, "Function Call")
     {
         auto &st = SymbolTable::getInstance();
-        const auto &type = st.FindID(id_node->name);
+        const auto &type = st.FindID(id_node->name).type;
         if (type.empty() || type.size() < 2) {
             output::errorUndefFunc(yylineno, id_node->name);
             exit(1);
@@ -364,11 +370,24 @@ namespace AST {
     }
 
     RelOpNode::RelOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2)
-    : Node(Type::BOOL, "Relational operator"){
-        if(!(numType(exp1->type) && numType(exp2->type)) ){
+    : Node(Type::BOOL, "Relational operator") {
+        string value1 = exp1->value();
+        string value2 = exp2->value();
+        if (exp1->type == Type::BYTE && exp2->type == Type::INT) {
+            value1 = CodeGen::fromByteToInt(value1);
+        }
+        else if (exp2->type == Type::BYTE && exp1->type == Type::INT) {
+            value2 = CodeGen::fromByteToInt(value2);
+        }
+        else if (!numType(exp1->type) || !numType(exp2->type)){
             output::errorMismatch(yylineno);
             exit(1);
         }
+        this->result_reg = CodeGen::relop(
+                op->name,
+                !(exp1->type == Type::BYTE && exp2->type == Type::BYTE),
+                value1, value2
+                );
         children.push_back(move(exp1));
         children.push_back(move(op));
         children.push_back(move(exp2));
@@ -389,14 +408,44 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        auto BPlists2 = exp2->getBackpatchLists();
+        auto &buffer = CodeBuffer::instance();
+        buffer.bpatch(N->getBackpatchLists().first, buffer.genLabel());
+        auto BPlists1 = exp1->getBackpatchLists();
+        std::tie(this->true_list, this->false_list) = CodeGen::andOr(
+                op->name, M->value(),
+                BPlists1, BPlists2
+        );
         children.push_back(move(exp1));
         children.push_back(move(op));
         children.push_back(move(exp2));
     }
 
+    string BoolBinOpNode::value() {
+        return CodeGen::getBoolFromLists(true_list, false_list);
+    }
+
+    pair<BackpatchList, BackpatchList> BoolBinOpNode::getBackpatchLists() {
+        return {true_list, false_list};
+    }
+
     IDNode::IDNode(string name) : Node(Type::VOID, move(name)) {}
 
-    LiteralNode::LiteralNode(string name, Type type) : Node(type, move(name)) {}
+    LiteralNode::LiteralNode(string name, Type type) : Node(type, move(name)) {
+        if (this->type == Type::STRING) {
+            this->global_variable = CodeGen::create_global_string(this->name);
+        }
+    }
+
+    string LiteralNode::value() {
+        if (this->type == Type::INT || this->type == Type::BYTE) {
+            return this->name;
+        }
+        else if (this->type == Type::STRING) {
+            return this->global_variable;
+        }
+        throw std::logic_error("literal is not from permitted type");
+    }
 
     NotNode::NotNode(unique_ptr<Node> exp) : Node(Type::BOOL, "Not")
     {
@@ -405,6 +454,7 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        std::tie(this->true_list, this->false_list) = pair{this->false_list, this->true_list};
         children.push_back(move(exp));
     }
 
@@ -431,7 +481,6 @@ namespace AST {
         children.push_back(move(statements));
     }
 
-
     CaseDeclNode::CaseDeclNode(unique_ptr<Node> statements) : Node(Type::VOID, "case declaration") {
         for (auto &child : statements->children) {
             children.push_back(move(child));
@@ -440,7 +489,8 @@ namespace AST {
 
     IDExp::IDExp(unique_ptr<Node> id) : Node(id->type, move(id->name)) {
         auto &st = SymbolTable::getInstance();
-        vector<SymbolTable::Type> type = st.FindID(name);
+        auto &entry = st.FindID(name);
+        auto &type = entry.type;
         if(type.empty() || type.size() > 1) {
             output::errorUndef(yylineno, name);
             exit(1);
@@ -448,6 +498,16 @@ namespace AST {
         this->type = type[0];
         // TODO : check if function argument
         this->result_reg = CodeGen::load_variable(entry.register_name, this->type);
+    }
+
+    string IDExp::value() {
+        return this->result_reg;
+    }
+
+    pair<BackpatchList, BackpatchList> IDExp::getBackpatchLists() {
+        if (this->type != Type::BOOL)
+            throw std::logic_error("called getBackpatchLists() on non-bool value");
+        return CodeGen::getListsFromBool(this->result_reg);
     }
 
     MNode::MNode() : Node(Type::VOID, "M") {
@@ -467,7 +527,6 @@ namespace AST {
     pair<BackpatchList, BackpatchList> NNode::getBackpatchLists() {
         return { this->nextList, {} };
     }
-
 
     string Node::value() {
 //        throw std::logic_error("bad call to value()");
