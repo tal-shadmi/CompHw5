@@ -14,8 +14,6 @@ public:
 
     enum class Type {INT = 0, BYTE, BOOL, STRING, VOID};
 
-private:
-
     struct Entry {
         string name;
         vector<Type> type;
@@ -24,6 +22,8 @@ private:
     };
 
     using Table=vector<Entry>;
+
+private:
 
     vector<Table> tables_stack;
     vector<int> offsets_stack;
@@ -41,7 +41,7 @@ public:
 
     void AddArgument(string name, Type type);
 
-    const vector<Type> &FindID(const string &name);
+    const Entry &FindID(const string &name);
 
     Type getFunctionType();
 

@@ -28,6 +28,7 @@ namespace AST {
         string name;
         vector<unique_ptr<Node>> children;
         virtual string value();
+        virtual pair<BackpatchList, BackpatchList> getBackpatchLists();
     };
 
     class ProgramNode : public Node {
@@ -89,10 +90,10 @@ namespace AST {
         ~StatementsNode() override = default;
     };
 
-    class StatementToStatementsNode : public Node {
+    class StatementsToStatementNode : public Node {
         public:
-        explicit StatementToStatementsNode(unique_ptr<Node> Statements);
-        ~StatementToStatementsNode() override = default;
+        explicit StatementsToStatementNode(unique_ptr<Node> Statements);
+        ~StatementsToStatementNode() override = default;
     };
 
     class StatementDeclareVariableNode : public Node {
@@ -164,7 +165,7 @@ namespace AST {
         explicit CallNode(unique_ptr<Node> id_node);
         CallNode(unique_ptr<Node> id_node, unique_ptr<Node> exp_list);
         ~CallNode() override = default;
-//        string value() override;
+//        string value() override; TODO
     };
 
     class ExpListNode : public Node {
@@ -192,18 +193,19 @@ namespace AST {
         BackpatchList true_list;
         BackpatchList false_list;
         public:
-        BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
+        BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> N, unique_ptr<Node> op, unique_ptr<Node> M, unique_ptr<Node> exp2);
         ~BoolBinOpNode() override = default;
-//        string value() override;
+        string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class RelOpNode : public Node {
-        BackpatchList true_list;
-        BackpatchList false_list;
+        string result_reg;
     public:
         RelOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2);
         ~RelOpNode() override = default;
-//        string value() override;
+        string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class IDNode : public Node {
@@ -217,14 +219,15 @@ namespace AST {
     public:
         explicit IDExp(unique_ptr<Node> id);
         ~IDExp() override = default;
-//        string value() override;
+        string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class LiteralNode : public Node {
         public:
         LiteralNode(string name, Type type);
         ~LiteralNode() override = default;
-//        string value() override;
+        string value() override;
     };
 
     class NotNode : public Node {
@@ -233,7 +236,7 @@ namespace AST {
         public:
         explicit NotNode(unique_ptr<Node> exp);
         ~NotNode() override = default;
-//        string value() override;
+        string value() override;
     };
 
     class CaseListNode : public Node {
@@ -256,19 +259,19 @@ namespace AST {
     };
 
     class MNode : public Node {
-    public:
         string label;
-
+    public:
         explicit MNode();
         ~MNode() override = default;
+        string value() override;
     };
 
     class NNode : public Node {
-    public:
         BackpatchList nextList;
-
+    public:
         explicit NNode();
         ~NNode() override = default;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     extern int switch_count;

@@ -1,0 +1,20 @@
+void main() {
+	bool x = (1 < 2);
+}
+
+//  %r0 = icmp slt i32 1, 2
+//  br label_X	 
+//  label_13:
+//  %r1 = icmp eq i32 3, 4
+//  br i1 %r1, label %label_17, , label %label_19
+// label_X:
+//  br i1 %r0, label %label_13, , label %label_19
+//  label_17:
+//  br label %label_21
+//  label_19:
+//  br label %label_21
+//  label_21:
+//  %r2 =  phi i1 [0, %label_19], [1, %label_17]
+//  %r3 = alloca i32
+//  %r4 = zext i1 %r2 to i32
+//  store i32 %r4, i32* %r3

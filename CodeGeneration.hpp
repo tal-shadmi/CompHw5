@@ -3,25 +3,30 @@
 
 #include <string>
 #include "bp.hpp"
+#include "SymbolTable.hpp"
 
 using std::string;
 
 namespace CodeGen {
+    string getRegisterName();
+
+    string getGlobalName();
 
     string create_variable(const string &value);
 
     string load_variable(const string &register_name);
 
-    pair<BackpatchList, BackpatchList> relop(const string &action, bool isSigned, const string &x, const string &y);
-
-//    pair<BackpatchList, BackpatchList> AND(const string &x, const string &y);
-//
-//    pair<BackpatchList, BackpatchList> OR(const string &x, const string &y);
-//
-//    pair<BackpatchList, BackpatchList> NOT(const string &x);
+    string relop(const string &action, bool isSigned, const string &x, const string &y);
 
     string arithmetic(const string &action, int type, const string &x, const string &y);
 
+    string getBoolFromLists(BackpatchList &true_list, BackpatchList &false_list);
+
+    pair<BackpatchList, BackpatchList> getListsFromBool(const string &value);
+
+    pair<BackpatchList, BackpatchList> andOr(const string &action, const string &midlabel, const pair<BackpatchList, BackpatchList> &x, const pair<BackpatchList, BackpatchList> &y);
+
+    string fromByteToInt(const string &value);
 }
 
 #endif //CODEGENERATION_H

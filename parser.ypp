@@ -78,7 +78,7 @@ Statements:         Statement                  { $$ = new AST::StatementsNode(un
                     | Statements Statement     { $$ = new AST::StatementsNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
 ;
 Statement:          LBRACE OpenScope Statements CloseScope RBRACE
-                                               { $$ = new AST::StatementToStatementsNode(unique_ptr<AST::Node>{ $3 }); }
+                                               { $$ = new AST::StatementsToStatementNode(unique_ptr<AST::Node>{ $3 }); }
                     | Type ID SC               { $$ = new AST::StatementDeclareVariableNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
                     | Type ID ASSIGN Exp SC    { $$ = new AST::StatementDeclareVariableNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
                     | ID ASSIGN Exp SC         { $$ = new AST::StatementAssignNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
@@ -127,12 +127,16 @@ Exp:            LPAREN Exp RPAREN              { $$ = $2; }
                 | TRUE                         { $$ = new AST::LiteralNode("true", AST::Type::BOOL); }
                 | FALSE                        { $$ = new AST::LiteralNode("false", AST::Type::BOOL); }
                 | NOT Exp                      { $$ = new AST::NotNode( unique_ptr<AST::Node>{ $2 }); }
-                | Exp AND Exp                  { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                | Exp N AND M Exp                  { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ $2 },
                                                                               unique_ptr<AST::Node>{ new AST::IDNode("and") },
-                                                                              unique_ptr<AST::Node>{ $3 } ); }
-                | Exp OR Exp                   { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ $4 },
+                                                                              unique_ptr<AST::Node>{ $5 }); }
+                | Exp N OR M Exp                   { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
+                                                                              unique_ptr<AST::Node>{ $2 },
                                                                               unique_ptr<AST::Node>{ new AST::IDNode("or") },
-                                                                              unique_ptr<AST::Node>{ $3 } ); }
+                                                                              unique_ptr<AST::Node>{ $4 },
+                                                                              unique_ptr<AST::Node>{ $5 } ); }
                 | Exp RELOP Exp                { $$ = new AST::RelOpNode( unique_ptr<AST::Node>{ $1 },
                                                                               unique_ptr<AST::Node>{ $2 },
                                                                               unique_ptr<AST::Node>{ $3 } ); }
@@ -161,7 +165,7 @@ ExitSwitch:           CloseScope               { --AST::switch_count; }
 ;
 M:                    /*epsilon*/              { $$ = new AST::MNode(); }
 ;
-N:                    /*epsilon*/              { $$ = new AST::MNode(); }
+N:                    /*epsilon*/              { $$ = new AST::NNode(); }
 ;
 %%
 

@@ -4,6 +4,7 @@
 #include <sstream>
 //#include "PrintTree.hpp"
 #include "CodeGeneration.hpp"
+#include <iostream>
 
 extern int yylineno;
 
@@ -46,6 +47,8 @@ namespace AST {
         SymbolTable::getInstance().CloseScope();
         /*auto printer = Printer{};
         printer.walk(this, "");*/
+        CodeBuffer::instance().printGlobalBuffer();
+        std::cout << std::endl;
         CodeBuffer::instance().printCodeBuffer();
     }
 
@@ -138,7 +141,7 @@ namespace AST {
         children.push_back(move(statement));
     }
 
-    StatementToStatementsNode::StatementToStatementsNode(unique_ptr<Node> statements) : Node(Type::VOID, "{ statements }") {
+    StatementsToStatementNode::StatementsToStatementNode(unique_ptr<Node> statements) : Node(Type::VOID, "{ statements }") {
         for (auto &child : statements->children) {
             children.push_back(move(child));
         }
@@ -148,7 +151,8 @@ namespace AST {
         auto &st = SymbolTable::getInstance();
         vector<SymbolTable::Type> type = st.FindID(id->name);
         if (type.empty()) {
-            st.AddVariable(id->name, type_node->type, ""); // TODO : add register name
+            string reg_name = CodeGen::create_variable("0", type_node->type);
+            st.AddVariable(id->name, type_node->type, reg_name);
         }
         else {
             output::errorDef(yylineno, id->name);
@@ -166,7 +170,12 @@ namespace AST {
         auto &st = SymbolTable::getInstance();
         vector<SymbolTable::Type> type = st.FindID(id->name);
         if (type.empty()) {
-            st.AddVariable(id->name, type_node->type, ""); // TODO : add register name
+            string value = exp->value();
+            if (type_node->type == Type::INT && exp->type == Type::BYTE) {
+                value = CodeGen::fromByteToInt(value);
+            }
+            string reg_name = CodeGen::create_variable(value, type_node->type);
+            st.AddVariable(id->name, type_node->type, reg_name);
         }
         else {
             output::errorDef(yylineno, id->name);
@@ -325,18 +334,26 @@ namespace AST {
 
     BinOpNode::BinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2) : Node(Type::VOID, "Binary Operation")
     {
+        string value1 = exp1->value();
+        string value2 = exp2->value();
+
         if (exp1->type == exp2->type && (exp1->type == Type::INT || exp1->type == Type::BYTE))
         {
             type = exp1->type;
         }
-        else if ((exp1->type == Type::BYTE || exp2->type == Type::BYTE) && (exp1->type == Type::INT || exp2->type == Type::INT)) {
+        else if (exp1->type == Type::BYTE && exp2->type == Type::INT) {
             type = Type::INT;
+            value1 = CodeGen::fromByteToInt(value1);
+        }
+        else if (exp2->type == Type::BYTE && exp1->type == Type::INT) {
+            type = Type::INT;
+            value2 = CodeGen::fromByteToInt(value2);
         }
         else {
             output::errorMismatch(yylineno);
             exit(1);
         }
-        this->result_reg = CodeGen::arithmetic(op->name, type == Type::INT? 32: 8, exp1->value(), exp2->value());
+        this->result_reg = CodeGen::arithmetic(op->name, type == Type::INT? 32: 8, value1, value2);
         children.push_back(move(exp1));
         children.push_back(move(op));
         children.push_back(move(exp2));
@@ -357,7 +374,15 @@ namespace AST {
         children.push_back(move(exp2));
     }
 
-    BoolBinOpNode::BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> exp2) : Node(Type::BOOL, "Binary Boolean Operation")
+    string RelOpNode::value() {
+        return this->result_reg;
+    }
+
+    pair<BackpatchList, BackpatchList> RelOpNode::getBackpatchLists() {
+        return CodeGen::getListsFromBool(result_reg);
+    }
+
+    BoolBinOpNode::BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> N, unique_ptr<Node> op, unique_ptr<Node> M, unique_ptr<Node> exp2) : Node(Type::BOOL, "Binary Boolean Operation")
     {
         if (exp1->type != Type::BOOL || exp2->type != Type::BOOL )
         {
@@ -381,6 +406,10 @@ namespace AST {
             exit(1);
         }
         children.push_back(move(exp));
+    }
+
+    string NotNode::value() {
+        return CodeGen::getBoolFromLists(true_list, false_list);
     }
 
     CaseListNode::CaseListNode(unique_ptr<Node> case_decl) : Node(Type::VOID, "Case List for switch block")
@@ -417,10 +446,16 @@ namespace AST {
             exit(1);
         }
         this->type = type[0];
+        // TODO : check if function argument
+        this->result_reg = CodeGen::load_variable(entry.register_name, this->type);
     }
 
     MNode::MNode() : Node(Type::VOID, "M") {
         this->label = CodeBuffer::instance().genLabel();
+    }
+
+    string MNode::value() {
+        return this->label;
     }
 
     NNode::NNode() : Node(Type::VOID, "N") {
@@ -429,8 +464,18 @@ namespace AST {
         this->nextList = CodeBuffer::makelist({loc, FIRST});
     }
 
+    pair<BackpatchList, BackpatchList> NNode::getBackpatchLists() {
+        return { this->nextList, {} };
+    }
+
 
     string Node::value() {
-        return "";
+//        throw std::logic_error("bad call to value()");
+        return {};
+    }
+
+    pair<BackpatchList, BackpatchList> Node::getBackpatchLists() {
+//        throw std::logic_error("bad call to getBackpatchLists()");
+        return {};
     }
 }

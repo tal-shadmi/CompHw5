@@ -8,7 +8,7 @@
 using std::cout;
 using std::endl;
 
-static const vector<SymbolTable::Type> no_result {};
+static const SymbolTable::Entry no_result {};
 
 static constexpr std::array type_name {"INT", "BYTE", "BOOL", "STRING", "VOID"};
 
@@ -38,21 +38,21 @@ void SymbolTable::OpenScope() {
 }
 
 void SymbolTable::CloseScope() {
-    output::endScope();
-    for (auto &entry : tables_stack.back()) {
-        if (entry.type.size() == 1) {
-            output::printID(entry.name, static_cast<int>(entry.offset), type_name[static_cast<int>(entry.type[0])]);
-        }
-        else {
-            auto ret_type = type_name[static_cast<int>(entry.type[0])];
-            vector<string> arguments_types;
-            if(entry.type[1] != Type::VOID)
-                std::transform(entry.type.begin()+1, entry.type.end(),
-                           std::back_inserter(arguments_types),
-                           [](Type t){ return type_name[static_cast<int>(t)];});
-            output::printID(entry.name, static_cast<int>(entry.offset), output::makeFunctionType(ret_type, arguments_types));
-        }
-    }
+//    output::endScope();
+//    for (auto &entry : tables_stack.back()) {
+//        if (entry.type.size() == 1) {
+//            output::printID(entry.name, static_cast<int>(entry.offset), type_name[static_cast<int>(entry.type[0])]);
+//        }
+//        else {
+//            auto ret_type = type_name[static_cast<int>(entry.type[0])];
+//            vector<string> arguments_types;
+//            if(entry.type[1] != Type::VOID)
+//                std::transform(entry.type.begin()+1, entry.type.end(),
+//                           std::back_inserter(arguments_types),
+//                           [](Type t){ return type_name[static_cast<int>(t)];});
+//            output::printID(entry.name, static_cast<int>(entry.offset), output::makeFunctionType(ret_type, arguments_types));
+//        }
+//    }
     tables_stack.pop_back();
     offsets_stack.pop_back();
 }
@@ -80,12 +80,12 @@ void SymbolTable::AddArgument(string name, Type type) {
     table.push_back( Entry{ move(name), { type }, offset } );
 }
 
-const vector<SymbolTable::Type> &SymbolTable::FindID(const string &name) {
+const SymbolTable::Entry &SymbolTable::FindID(const string &name) {
     for(Table &table : tables_stack) {
         auto it = std::find_if(table.begin(),table.end(),
                      [&name](Entry &entry){ return entry.name == name;} );
         if(it != table.end()){
-            return it->type;
+            return *it;
         }
     }
     return no_result;
