@@ -125,7 +125,7 @@ namespace AST {
 
     class StatementWhileNode : public Node {
         public:
-        StatementWhileNode(unique_ptr<Node> exp, unique_ptr<Node> statement);
+        StatementWhileNode(unique_ptr<Node> decl, unique_ptr<Node> m, unique_ptr<Node> statement);
         ~StatementWhileNode() override = default;
     };
 

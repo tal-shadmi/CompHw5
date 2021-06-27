@@ -97,9 +97,11 @@ Statement:          LBRACE OpenScope Statements CloseScope RBRACE
                     | SwitchDecl LBRACE EnterSwitch CaseList ExitSwitch RBRACE
                                                { $$ = new AST::StatementSwitchNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $4 }); }
 ;
-IfDecl:             IF LPAREN  Exp RPAREN      { $$ = new AST::IfDeclNode(unique_ptr<AST::Node>{ $3 }); }
+IfDecl:             IF LPAREN Exp RPAREN      { $$ = new AST::IfDeclNode(unique_ptr<AST::Node>{ $3 }); }
 ;
-WhileDecl:          WHILE LPAREN Exp RPAREN    { $$ = new AST::WhileDeclNode(unique_ptr<AST::Node>{ $3 }); }
+WhileDecl:          WHILE N M LPAREN Exp RPAREN   { $$ = new AST::WhileDeclNode(unique_ptr<AST::Node>{ $2 },
+                                                                                unique_ptr<AST::Node>{ $3 },
+                                                                                unique_ptr<AST::Node>{ $5 }); }
 ;
 SwitchDecl:         SWITCH LPAREN Exp RPAREN   { $$ = new AST::SwitchDeclNode(unique_ptr<AST::Node>{ $3 }); }
 ;

@@ -69,7 +69,10 @@ namespace AST {
                                  unique_ptr<Node> id, unique_ptr<Node> formals) : Node(retType->type,
                                                                                        "Function Signature") {
         auto &st = SymbolTable::getInstance();
-        if(!st.FindID(id->name).type.empty()){
+        auto &buffer = CodeBuffer::instance();
+        stringstream cmd;
+        cmd << "define " << type_llvm[static_cast<int>(retType->type)] << " @" << id->name << " (";
+        if (!st.FindID(id->name).type.empty()) {
             output::errorDef(yylineno, id->name);
             exit(1);
         }
@@ -89,6 +92,10 @@ namespace AST {
                 exit(1);
             }
             st.AddArgument(f->name, f->type);
+            if (!first)
+                cmd << ", ";
+            cmd << type_llvm[static_cast<int>(f->type)];
+            first = false;
         }
         cmd << ") {";
         buffer.emit(cmd.str());
@@ -231,6 +238,15 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        auto [ret_type, ret_value] = pair{exp->type, exp->value()};
+        if (function_type == Type::INT && ret_type == Type::BYTE) {
+            ret_value = CodeGen::fromByteToInt(ret_value);
+            ret_type = Type::INT;
+        }
+        auto &buffer = CodeBuffer::instance();
+        stringstream cmd;
+        cmd << "ret " << type_llvm[static_cast<int>(ret_type)] << " " << ret_value;
+        buffer.emit(cmd.str());
         children.push_back(move(exp));
     }
 
@@ -263,7 +279,17 @@ namespace AST {
         children.push_back(move(else_statement));
     }
 
-    StatementWhileNode::StatementWhileNode(unique_ptr<Node> decl, unique_ptr<Node> statement) : Node(Type::VOID, "while loop") {
+    StatementWhileNode::StatementWhileNode(unique_ptr<Node> decl, unique_ptr<Node> m, unique_ptr<Node> statement)
+            : Node(Type::VOID, "while loop") {
+        auto &buffer = CodeBuffer::instance();
+        auto[true_list, false_list] = decl->getBackpatchLists();
+        buffer.bpatch(true_list, m->value());
+        auto declaration = dynamic_cast<WhileDeclNode *>(decl.get());
+        stringstream cmd;
+        cmd << "br label %" << declaration->label_to_bool_exp;
+        buffer.emit(cmd.str());
+        string end_label = buffer.genLabel();
+        buffer.bpatch(false_list, end_label);
         children.push_back(move(decl->children.front()));
         children.push_back(move(statement));
     }
@@ -305,6 +331,10 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
+        auto &buffer = CodeBuffer::instance();
+        std::tie(true_list, false_list) = exp->getBackpatchLists();
+        this->label_to_bool_exp = m->value();
+        buffer.bpatch(n->getBackpatchLists().first, label_to_bool_exp);
         children.push_back(move(exp));
     }
 
@@ -334,6 +364,15 @@ namespace AST {
             output::errorPrototypeMismatch(yylineno, id_node->name, type_strs);
             exit(1);
         }
+        auto &buffer = CodeBuffer::instance();
+        stringstream cmd;
+        if(type_list[0] != Type::VOID) {
+            string new_reg = CodeGen::getRegisterName();
+            cmd << new_reg << " = ";
+            this->result_reg = new_reg;
+        }
+        cmd << "call " << type_llvm[static_cast<int>(type_list[0])] << " @" << id_node->name << "()";
+        buffer.emit(cmd.str());
         children.push_back(move(id_node));
         this->type = type_list[0];
     }
@@ -356,6 +395,26 @@ namespace AST {
             output::errorPrototypeMismatch(yylineno, id_node->name, type_strs);
             exit(1);
         }
+        auto &buffer = CodeBuffer::instance();
+        string type_list_str = std::accumulate(type_list.begin() + 1, type_list.end(), string{},
+                                           [&](const string &a, Type b) {
+                                               return a + "," + type_llvm[static_cast<int>(b)];
+                                           }).substr(1);
+        stringstream arg_list;
+        int i = 0;
+        for(const auto & child : exp_list->children){
+            if(i++ != 0) arg_list << ", ";
+            auto [child_type, child_value] = pair{child->type, child->value()};
+            if (type_list[i] == Type::INT && child_type == Type::BYTE) {
+                child_value = CodeGen::fromByteToInt(child_value);
+                child_type = Type::INT;
+            }
+            arg_list << type_llvm[static_cast<int>(child_type)] << " " << child_value;
+        }
+
+        stringstream cmd;
+        cmd << "call " << type_llvm[static_cast<int>(type_list[0])] << " (" << type_list_str << ") @" << id_node->name << "(" << arg_list.str() << ")";
+        buffer.emit(cmd.str());
         children.push_back(move(id_node));
         children.push_back(move(exp_list));
         this->type = type_list[0];
