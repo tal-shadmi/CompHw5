@@ -1,5 +1,15 @@
+int mein(byte c) {
+	byte a = c;
+	while(a < 15){
+		printi(a);
+		a = a + 1b;
+	}
+	return a;
+}
+
 void main() {
-	bool x = (1 < 2);
+	mein(3b);
+	return;
 }
 
 //  %r0 = icmp slt i32 1, 2

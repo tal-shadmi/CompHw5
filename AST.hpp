@@ -118,8 +118,8 @@ namespace AST {
 
     class StatementIfElseNode : public Node {
         public:
-        StatementIfElseNode(unique_ptr<Node> exp, unique_ptr<Node> statement);
-        StatementIfElseNode(unique_ptr<Node> exp, unique_ptr<Node> if_statement, unique_ptr<Node> else_statement);
+        StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m, unique_ptr<Node> statement);
+        StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m1, unique_ptr<Node> if_statement, unique_ptr<Node> n, unique_ptr<Node> m2, unique_ptr<Node> else_statement);
         ~StatementIfElseNode() override = default;
     };
 
@@ -142,15 +142,22 @@ namespace AST {
     };
 
     class IfDeclNode : public Node {
+        BackpatchList true_list;
+        BackpatchList false_list;
     public:
         explicit IfDeclNode(unique_ptr<Node> exp);
         ~IfDeclNode() override = default;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class WhileDeclNode : public Node {
+        BackpatchList true_list;
+        BackpatchList false_list;
     public:
-        explicit WhileDeclNode(unique_ptr<Node> exp);
+        string label_to_bool_exp;
+        explicit WhileDeclNode(unique_ptr<Node> n, unique_ptr<Node> m, unique_ptr<Node> exp);
         ~WhileDeclNode() override = default;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class SwitchDeclNode : public Node {
@@ -165,7 +172,8 @@ namespace AST {
         explicit CallNode(unique_ptr<Node> id_node);
         CallNode(unique_ptr<Node> id_node, unique_ptr<Node> exp_list);
         ~CallNode() override = default;
-//        string value() override; TODO
+        string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class ExpListNode : public Node {
@@ -193,7 +201,7 @@ namespace AST {
         BackpatchList true_list;
         BackpatchList false_list;
         public:
-        BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> N, unique_ptr<Node> op, unique_ptr<Node> M, unique_ptr<Node> exp2);
+        BoolBinOpNode(unique_ptr<Node> exp1, unique_ptr<Node> op, unique_ptr<Node> N, unique_ptr<Node> M, unique_ptr<Node> exp2);
         ~BoolBinOpNode() override = default;
         string value() override;
         pair<BackpatchList, BackpatchList> getBackpatchLists() override;

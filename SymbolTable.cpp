@@ -1,6 +1,6 @@
 #include <iostream>
 #include "SymbolTable.hpp"
-#include "algorithm"
+#include <algorithm>
 #include <array>
 #include "output.hpp"
 #include <exception>
@@ -10,7 +10,7 @@ using std::endl;
 
 static const SymbolTable::Entry no_result {};
 
-static constexpr std::array type_name {"INT", "BYTE", "BOOL", "STRING", "VOID"};
+//static constexpr std::array type_name {"INT", "BYTE", "BOOL", "STRING", "VOID"};
 
 class ArgumentAfterVariable: public exception
 {
@@ -77,7 +77,7 @@ void SymbolTable::AddArgument(string name, Type type) {
     } else {
         throw ArgumentAfterVariable();
     }
-    table.push_back( Entry{ move(name), { type }, offset } );
+    table.push_back( Entry{ move(name), { type }, offset, "%" + to_string(- offset - 1 ) } );
 }
 
 const SymbolTable::Entry &SymbolTable::FindID(const string &name) {

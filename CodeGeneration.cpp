@@ -189,7 +189,7 @@ namespace CodeGen {
         stringstream cmd;
         cmd.str("");
         cmd.clear();
-        cmd << "br i1 " << value << ", label " << "@" << ", " << ", label " << "@";
+        cmd << "br i1 " << value << ", label " << "@" << ", label " << "@";
         int loc = buffer.emit(cmd.str());
         return {CodeBuffer::makelist({loc, FIRST}), CodeBuffer::makelist({loc, SECOND})};
     }

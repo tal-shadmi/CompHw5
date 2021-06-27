@@ -49,6 +49,7 @@ void assert_byte_size(const string &num);
 %left RPAREN
 %left LBRACE
 %left RBRACE
+%nonassoc highest
 
 /* Grammar Rules */
 %%
@@ -85,12 +86,12 @@ Statement:          LBRACE OpenScope Statements CloseScope RBRACE
                     | Call SC                  { $$ = $1; }
                     | RETURN SC                { $$ = new AST::StatementReturnNode(); }
                     | RETURN Exp SC            { $$ = new AST::StatementReturnNode(unique_ptr<AST::Node>{ $2 }); }
-                    | IfDecl OpenScope Statement CloseScope      %prec IF
-                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
-                    | IfDecl OpenScope Statement CloseScope ELSE OpenScope Statement CloseScope     %prec ELSE
-                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }, unique_ptr<AST::Node>{ $7 }); }
-                    | WhileDecl EnterWhile Statement ExitWhile
-                                               { $$ = new AST::StatementWhileNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                    | IfDecl M OpenScope Statement CloseScope      %prec IF
+                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
+                    | IfDecl M OpenScope Statement CloseScope ELSE N M OpenScope Statement CloseScope     %prec ELSE
+                                               { $$ = new AST::StatementIfElseNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }, unique_ptr<AST::Node>{ $7 }, unique_ptr<AST::Node>{ $8 }, unique_ptr<AST::Node>{ $10 }); }
+                    | WhileDecl M EnterWhile Statement ExitWhile
+                                               { $$ = new AST::StatementWhileNode(unique_ptr<AST::Node>{ $1 },unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
                     | BREAK SC                 { $$ = new AST::StatementBreakContinue("break"); }
                     | CONTINUE SC              { $$ = new AST::StatementBreakContinue("continue"); }
                     | SwitchDecl LBRACE EnterSwitch CaseList ExitSwitch RBRACE
@@ -127,14 +128,14 @@ Exp:            LPAREN Exp RPAREN              { $$ = $2; }
                 | TRUE                         { $$ = new AST::LiteralNode("true", AST::Type::BOOL); }
                 | FALSE                        { $$ = new AST::LiteralNode("false", AST::Type::BOOL); }
                 | NOT Exp                      { $$ = new AST::NotNode( unique_ptr<AST::Node>{ $2 }); }
-                | Exp N AND M Exp                  { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
-                                                                              unique_ptr<AST::Node>{ $2 },
+                | Exp AND N M Exp                  { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
                                                                               unique_ptr<AST::Node>{ new AST::IDNode("and") },
+                                                                              unique_ptr<AST::Node>{ $3 },
                                                                               unique_ptr<AST::Node>{ $4 },
                                                                               unique_ptr<AST::Node>{ $5 }); }
-                | Exp N OR M Exp                   { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
-                                                                              unique_ptr<AST::Node>{ $2 },
+                | Exp OR N M Exp                   { $$ = new AST::BoolBinOpNode( unique_ptr<AST::Node>{ $1 },
                                                                               unique_ptr<AST::Node>{ new AST::IDNode("or") },
+                                                                              unique_ptr<AST::Node>{ $3 },
                                                                               unique_ptr<AST::Node>{ $4 },
                                                                               unique_ptr<AST::Node>{ $5 } ); }
                 | Exp RELOP Exp                { $$ = new AST::RelOpNode( unique_ptr<AST::Node>{ $1 },
@@ -151,9 +152,9 @@ CaseList:           CaseDecl CaseList          { $$ = new AST::CaseListNode( uni
 ;
 CaseDecl:           CASE NUM COLON Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $4 }); }
 ;
-OpenScope:            /*epsilon*/              { SymbolTable::getInstance().OpenScope(); }
+OpenScope:      /*epsilon*/ %prec highest      { SymbolTable::getInstance().OpenScope(); }
 ;
-CloseScope:           /*epsilon*/              { SymbolTable::getInstance().CloseScope(); }
+CloseScope:     /*epsilon*/ %prec highest      { SymbolTable::getInstance().CloseScope(); }
 ;
 EnterWhile:           OpenScope                { ++AST::while_count; }
 ;
@@ -163,9 +164,9 @@ EnterSwitch:          OpenScope                { ++AST::switch_count; }
 ;
 ExitSwitch:           CloseScope               { --AST::switch_count; }
 ;
-M:                    /*epsilon*/              { $$ = new AST::MNode(); }
+M:             /*epsilon*/ %prec highest       { $$ = new AST::MNode(); }
 ;
-N:                    /*epsilon*/              { $$ = new AST::NNode(); }
+N:             /*epsilon*/ %prec highest       { $$ = new AST::NNode(); }
 ;
 %%
 
