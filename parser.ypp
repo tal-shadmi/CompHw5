@@ -154,7 +154,7 @@ CaseList:           CaseDecl CaseList          { $$ = new AST::CaseListNode( uni
                                                         make_unique<AST::DefaultCaseNode>(unique_ptr<AST::Node>{ $3 }, unique_ptr<AST::Node>{ $4 })
                                                         ); }
 ;
-CaseDecl:           CASE NUM COLON Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $4 }); }
+CaseDecl:           CASE NUM COLON M Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }, unique_ptr<AST::Node>{ $5 }); }
 ;
 OpenScope:      /*epsilon*/ %prec highest      { SymbolTable::getInstance().OpenScope(); }
 ;

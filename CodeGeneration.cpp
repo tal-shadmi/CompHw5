@@ -61,7 +61,7 @@ namespace CodeGen {
         string new_global = getGlobalName();
         auto &buffer = CodeBuffer::instance();
         stringstream cmd;
-        cmd << new_global << " = constant [4 x i8] " << value.substr(0, value.size() - 1) << "\\00\"";
+        cmd << new_global << " = constant [" << value.size() - 1 << " x i8] c" << value.substr(0, value.size() - 1) << "\\00\"";
         buffer.emitGlobal(cmd.str());
         cmd.str("");
         cmd.clear();

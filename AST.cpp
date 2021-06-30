@@ -106,7 +106,19 @@ namespace AST {
 
     FuncsImplNode::FuncsImplNode(unique_ptr<Node> sign_node, unique_ptr<Node> statements)
             : Node(Type::VOID, "Function Implementation") {
-        children.push_back(move(decl_node));
+        auto &buffer = CodeBuffer::instance();
+        auto return_node_ptr = dynamic_cast<StatementReturnNode*>(statements->children.back().get());
+        if (return_node_ptr == nullptr) {
+            if (sign_node->type == Type::VOID) {
+                buffer.emit("ret void");
+            }
+            else {
+                stringstream cmd;
+                cmd << "ret " << type_llvm[static_cast<int>(sign_node->type)] << " 0";
+                buffer.emit(cmd.str());
+            }
+        }
+        children.push_back(move(sign_node));
         children.push_back(move(statements));
         SymbolTable::getInstance().CloseScope();
         buffer.emit("}");
@@ -326,6 +338,44 @@ namespace AST {
 
     StatementSwitchNode::StatementSwitchNode(unique_ptr<Node> decl, unique_ptr<Node> n, unique_ptr<Node> case_list) : Node(Type::VOID,
                                                                                                        "switch statement") {
+        auto &buffer = CodeBuffer::instance();
+        string switch_label = buffer.genLabel();
+        auto &exp = decl->children[0];
+        stringstream cases_str;
+        cases_str << "[ ";
+        std::optional<string> default_label = nullopt;
+        BackpatchList last_next_list{};
+        for(auto &c : case_list->children){
+            auto c_ptr = dynamic_cast<CaseDeclNode*>(c.get());
+            string label;
+            BackpatchList next_list;
+            if (c_ptr) {
+                cases_str << type_llvm[static_cast<int>(exp->type)] << " " << c_ptr->num << ", label %" << c_ptr->label << " ";
+                label = c_ptr->label;
+                next_list = c_ptr->next;
+            }
+            else {
+                auto d_ptr = dynamic_cast<DefaultCaseNode*>(c.get());
+                if (d_ptr) {
+                    default_label = d_ptr->label;
+                    label = d_ptr->label;
+                    next_list = d_ptr->next;
+                }
+            }
+            buffer.bpatch(last_next_list, label);
+            last_next_list.swap(next_list);
+        }
+        cases_str << "]";
+        stringstream cmd;
+        cmd << "switch " << type_llvm[static_cast<int>(exp->type)] << " " << exp->value() << ", label @ " << cases_str.str();
+        int loc = buffer.emit(cmd.str());
+        buffer.bpatch(n->getBackpatchLists().first, switch_label);
+        string end_label = buffer.genLabel();
+        auto [_break_list, _continue_list] = BreakContinueMixin::getListsFromNode(case_list.get());
+        this->continue_list = _continue_list;
+        buffer.bpatch(_break_list, end_label);
+        buffer.bpatch({{loc, FIRST}}, default_label.value_or(end_label));
+        buffer.bpatch(last_next_list, end_label);
         children.push_back(move(decl->children.front()));
         children.push_back(move(case_list));
     }

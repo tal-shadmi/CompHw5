@@ -126,7 +126,7 @@ namespace AST {
         ~StatementReturnNode() override = default;
     };
 
-    class StatementIfElseNode : public Node {
+    class StatementIfElseNode : public Node, public BreakContinueMixin {
         public:
         StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m, unique_ptr<Node> statement);
         StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m1, unique_ptr<Node> if_statement, unique_ptr<Node> n, unique_ptr<Node> m2, unique_ptr<Node> else_statement);
