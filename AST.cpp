@@ -470,14 +470,14 @@ namespace AST {
                                            }).substr(1);
         stringstream arg_list;
         int i = 0;
-        for(const auto & child : exp_list->children){
+        auto exp_list_ptr = dynamic_cast<ExpListNode*>(exp_list.get());
+        for(auto [arg_value, arg_type] : exp_list_ptr->arguments){
             if(i++ != 0) arg_list << ", ";
-            auto [child_type, child_value] = pair{child->type, child->value()};
-            if (type_list[i] == Type::INT && child_type == Type::BYTE) {
-                child_value = CodeGen::fromByteToInt(child_value);
-                child_type = Type::INT;
+            if (type_list[i] == Type::INT && arg_type == Type::BYTE) {
+                arg_value = CodeGen::fromByteToInt(arg_value);
+                arg_type = Type::INT;
             }
-            arg_list << type_llvm[static_cast<int>(child_type)] << " " << child_value;
+            arg_list << type_llvm[static_cast<int>(arg_type)] << " " << arg_value;
         }
 
         stringstream cmd;
@@ -504,14 +504,18 @@ namespace AST {
     }
 
     ExpListNode::ExpListNode(unique_ptr<Node> exp) : Node(Type::VOID, "ExpList") {
+        this->arguments.emplace_back(exp->value(), exp->type);
         children.push_back(move(exp));
     }
 
-    ExpListNode::ExpListNode(unique_ptr<Node> exp, unique_ptr<Node> exp_list) : Node(Type::VOID, "ExpList") {
-        children.push_back(move(exp));
+    ExpListNode::ExpListNode(unique_ptr<Node> exp_list, unique_ptr<Node> exp) : Node(Type::VOID, "ExpList") {
+        auto exp_list_ptr = dynamic_cast<ExpListNode*>(exp_list.get());
+        this->arguments = std::move(exp_list_ptr->arguments);
+        this->arguments.emplace_back(exp->value(), exp->type);
         for (auto &child : exp_list->children) {
             children.push_back(move(child));
         }
+        children.push_back(move(exp));
     }
 
     TypeNode::TypeNode(Type type) : Node(type, "Type") {}

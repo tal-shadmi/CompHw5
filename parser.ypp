@@ -109,7 +109,7 @@ Call:           ID LPAREN ExpList RPAREN       { $$ = new AST::CallNode(unique_p
                 | ID LPAREN RPAREN             { $$ = new AST::CallNode(unique_ptr<AST::Node>{ $1 }); }
 ;
 ExpList:            Exp                        { $$ = new AST::ExpListNode(unique_ptr<AST::Node>{ $1 }); }
-                    | Exp COMMA ExpList        { $$ = new AST::ExpListNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
+                    |  ExpList COMMA Exp        { $$ = new AST::ExpListNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $3 }); }
 ;
 Type:           INT                            { $$ = new AST::TypeNode(AST::Type::INT); }
                 | BYTE                         { $$ = new AST::TypeNode(AST::Type::BYTE); }

@@ -1,4 +1,4 @@
-int mein(byte c) {
+int mein(byte c, bool x, bool y) {
 	switch (c) {
 		case 1: printi(1); break;
 		case 2: printi(2);
@@ -10,7 +10,8 @@ int mein(byte c) {
 }
 
 void main() {
-	mein(5b);
+	int x = 2; 
+	mein(5b, x<3 or x>5, x==1);
 	return;
 }
 

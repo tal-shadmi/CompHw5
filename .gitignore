@@ -39,7 +39,8 @@ parser.tab.hpp
 lex.yy.c
 .vs
 *.res
-hw3
+hw5
+hw5-tests/hw5
 hw5-tests/*.llvm
 hw5-tests/*.res
 *.zip

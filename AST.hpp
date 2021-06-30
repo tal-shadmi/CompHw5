@@ -188,8 +188,9 @@ namespace AST {
 
     class ExpListNode : public Node {
         public:
+        vector<pair<string, Type>> arguments;
         explicit ExpListNode(unique_ptr<Node> exp);
-        ExpListNode(unique_ptr<Node> exp, unique_ptr<Node> exp_list);
+        ExpListNode(unique_ptr<Node> exp_list, unique_ptr<Node> exp);
         ~ExpListNode() override = default;
     };
 
