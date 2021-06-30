@@ -29,13 +29,22 @@ static const unordered_map<string, string> RelOpMapSigned = {
         {"<=", "sle"}
 };
 
-static const unordered_map<string, string> BinOpMap = {
+static const unordered_map<string, string> BinOpMapUnsigned = {
         {"+", "add"},
         {"-", "sub"},
-        {"/", "div"},
+        {"/", "udiv"},
         {"*", "mul"}
 
 };
+
+static const unordered_map<string, string> BinOpMapSigned = {
+        {"+", "add"},
+        {"-", "sub"},
+        {"/", "sdiv"},
+        {"*", "mul"}
+
+};
+
 
 
 namespace CodeGen {
@@ -54,7 +63,13 @@ namespace CodeGen {
         stringstream cmd;
         cmd << new_global << " = constant [4 x i8] " << value.substr(0, value.size() - 1) << "\\00\"";
         buffer.emitGlobal(cmd.str());
-        return new_global;
+        cmd.str("");
+        cmd.clear();
+        string new_reg = getRegisterName();
+        cmd << new_reg << " = getelementptr [" << value.size() - 1 << " x i8], [" << value.size() - 1
+            << " x i8]* " << new_global << ", i32 0, i32 0";
+        buffer.emit(cmd.str());
+        return new_reg;
     }
 
     string create_variable(const string &value, SymbolTable::Type type) {
@@ -157,9 +172,32 @@ namespace CodeGen {
 
     string arithmetic(const string &action, int type, const string &x, const string &y) {
         string new_reg = getRegisterName();
-        stringstream cmd;
-        cmd << new_reg << " = " << BinOpMap.at(action) << " i" << type << " " << x << ", " << y;
         auto &buffer = CodeBuffer::instance();
+        if(action == "/"){
+            stringstream cmd;
+            string cond_reg = getRegisterName();
+            cmd << cond_reg << " = " << "icmp eq i" << type << " " << y << ", " << 0;
+            buffer.emit(cmd.str());
+            cmd.str("");
+            cmd.clear();
+            cmd << "br i1 " << cond_reg << ", label " << "@" << ", label " << "@";
+            int loc = buffer.emit(cmd.str());
+            cmd.str("");
+            cmd.clear();
+            buffer.bpatch({{loc, FIRST}}, buffer.genLabel());
+            string str_reg = getRegisterName();
+            cmd << str_reg << " = getelementptr [23 x i8], [23 x i8]* @.division_error, i32 0, i32 0";
+            buffer.emit(cmd.str());
+            cmd.str("");
+            cmd.clear();
+            cmd << "call void (i8*) @print(i8* " << str_reg << ")";
+            buffer.emit(cmd.str());
+            buffer.emit("call void (i32) @exit(i32 0)");
+            buffer.emit("unreachable");
+            buffer.bpatch({{loc, SECOND}}, buffer.genLabel());
+        }
+        stringstream cmd;
+        cmd << new_reg << " = " << (type == 32 ? BinOpMapSigned.at(action) : BinOpMapUnsigned.at(action)) << " i" << type << " " << x << ", " << y;
         buffer.emit(cmd.str());
         return new_reg;
     }

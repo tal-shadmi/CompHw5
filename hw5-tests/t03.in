@@ -2,8 +2,8 @@ void fallthrough(int x) {
     switch (x) {
             case 1: printi(1); break;
             case 2: printi(2);
-            default: printi(0);
             case 3: printi(3);
+            default: printi(0);
     }
 }
 

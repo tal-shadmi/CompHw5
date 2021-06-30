@@ -28,7 +28,8 @@ CodeBuffer::CodeBuffer()
                              "declare i32 @printf(i8*, ...)",
                              "declare void @exit(i32)",
                              R"(@.int_specifier = constant [4 x i8] c"%d\0A\00")",
-                             R"(@.str_specifier = constant [4 x i8] c"%s\0A\00")"
+                             R"(@.str_specifier = constant [4 x i8] c"%s\0A\00")",
+                             R"(@.division_error = constant [23 x i8] c"Error division by zero\00")"
                      }) {}
 
 CodeBuffer &CodeBuffer::instance() {
@@ -37,6 +38,10 @@ CodeBuffer &CodeBuffer::instance() {
 }
 
 string CodeBuffer::genLabel() {
+    if(this->buffer.back().substr(0,6) == "label_"){
+        string &s = this->buffer.back();
+        return s.substr(0,s.size()-1);
+    }
     std::stringstream label;
     label << "label_";
     label << buffer.size();

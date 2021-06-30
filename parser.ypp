@@ -53,7 +53,7 @@ void assert_byte_size(const string &num);
 
 /* Grammar Rules */
 %%
-Program:            Funcs END                  { $$ = new AST::ProgramNode( unique_ptr<AST::Node>{ $1 } ); }
+Program:            Funcs END                  { $$ = new AST::ProgramNode( unique_ptr<AST::Node>{ $1 } ); delete $$; }
 ;
 Funcs:              /*epsilon*/                { $$ = new AST::FuncsNode(); }
                     |  FuncImpl Funcs          { $$ = new AST::FuncsNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $2 }); }
@@ -94,8 +94,8 @@ Statement:          LBRACE OpenScope Statements CloseScope RBRACE
                                                { $$ = new AST::StatementWhileNode(unique_ptr<AST::Node>{ $1 },unique_ptr<AST::Node>{ $2 }, unique_ptr<AST::Node>{ $4 }); }
                     | BREAK SC                 { $$ = new AST::StatementBreakContinue("break"); }
                     | CONTINUE SC              { $$ = new AST::StatementBreakContinue("continue"); }
-                    | SwitchDecl LBRACE EnterSwitch CaseList ExitSwitch RBRACE
-                                               { $$ = new AST::StatementSwitchNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $4 }); }
+                    | SwitchDecl LBRACE EnterSwitch N CaseList ExitSwitch RBRACE
+                                               { $$ = new AST::StatementSwitchNode(unique_ptr<AST::Node>{ $1 }, unique_ptr<AST::Node>{ $4 },  unique_ptr<AST::Node>{ $5 }); }
 ;
 IfDecl:             IF LPAREN Exp RPAREN      { $$ = new AST::IfDeclNode(unique_ptr<AST::Node>{ $3 }); }
 ;
@@ -150,7 +150,9 @@ Exp:            LPAREN Exp RPAREN              { $$ = $2; }
 CaseList:           CaseDecl CaseList          { $$ = new AST::CaseListNode( unique_ptr<AST::Node>{ $1 },
                                                                              unique_ptr<AST::Node>{ $2 } ); }
                     | CaseDecl                 { $$ = new AST::CaseListNode(unique_ptr<AST::Node>{ $1 }); }
-                    | DEFAULT COLON Statements { $$ = new AST::DefaultCaseNode(unique_ptr<AST::Node>{ $3 }); }
+                    | DEFAULT COLON M Statements { $$ = new AST::CaseListNode(
+                                                        make_unique<AST::DefaultCaseNode>(unique_ptr<AST::Node>{ $3 }, unique_ptr<AST::Node>{ $4 })
+                                                        ); }
 ;
 CaseDecl:           CASE NUM COLON Statements  { $$ = new AST::CaseDeclNode(unique_ptr<AST::Node>{ $4 }); }
 ;

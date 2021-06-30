@@ -28,9 +28,9 @@ add_custom_command(
 
 set(TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/hw5-tests)
 
-add_custom_command(
+add_custom_target(
+        exe-test
         # Copy executable to test directory
-        OUTPUT ${TEST_DIRECTORY}/hw5
         WORKING_DIRECTORY ${TEST_DIRECTORY}
         COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME} ./hw5
         DEPENDS ${CMAKE_PROJECT_NAME}
@@ -41,7 +41,7 @@ add_custom_target(
         TESTS
         WORKING_DIRECTORY ${TEST_DIRECTORY}
         COMMAND ./run.sh
-        DEPENDS ${TEST_DIRECTORY}/hw5
+        DEPENDS exe-test
 )
 
 add_custom_target(

@@ -3,9 +3,9 @@
 #include <numeric>
 #include "output.hpp"
 #include <sstream>
-//#include "PrintTree.hpp"
 #include "CodeGeneration.hpp"
 #include <iostream>
+#include <optional>
 
 extern int yylineno;
 
@@ -104,12 +104,12 @@ namespace AST {
         children.push_back(move(formals));
     }
 
-    FuncsImplNode::FuncsImplNode(unique_ptr<Node> decl_node, unique_ptr<Node> statements)
+    FuncsImplNode::FuncsImplNode(unique_ptr<Node> sign_node, unique_ptr<Node> statements)
             : Node(Type::VOID, "Function Implementation") {
         children.push_back(move(decl_node));
         children.push_back(move(statements));
         SymbolTable::getInstance().CloseScope();
-        CodeBuffer::instance().emit("}");
+        buffer.emit("}");
     }
 
     RetTypeNode::RetTypeNode()
@@ -142,11 +142,13 @@ namespace AST {
 
 
     StatementsNode::StatementsNode(unique_ptr<Node> statement) : Node(Type::VOID, "Statements") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statement.get());
         children.push_back(move(statement));
     }
 
     StatementsNode::StatementsNode(unique_ptr<Node> statements,
                                    unique_ptr<Node> statement) : Node(Type::VOID, "Statements") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statements.get(), statement.get());
         for (auto &child : statements->children) {
             children.push_back(move(child));
         }
@@ -155,6 +157,7 @@ namespace AST {
 
     StatementsToStatementNode::StatementsToStatementNode(unique_ptr<Node> statements) : Node(Type::VOID,
                                                                                              "{ statements }") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statements.get());
         for (auto &child : statements->children) {
             children.push_back(move(child));
         }
@@ -252,6 +255,7 @@ namespace AST {
 
     StatementIfElseNode::StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m, unique_ptr<Node> statement)
             : Node(Type::VOID, "if statement") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statement.get());
         auto &buffer = CodeBuffer::instance();
         auto[true_list, false_list] = decl->getBackpatchLists();
         buffer.bpatch(true_list, m->value());
@@ -266,6 +270,7 @@ namespace AST {
     StatementIfElseNode::StatementIfElseNode(unique_ptr<Node> decl, unique_ptr<Node> m1, unique_ptr<Node> if_statement,
                                              unique_ptr<Node> n, unique_ptr<Node> m2, unique_ptr<Node> else_statement)
             : Node(Type::VOID, "if else statement") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(if_statement.get(), else_statement.get());
         auto &buffer = CodeBuffer::instance();
         auto[true_list, false_list] = decl->getBackpatchLists();
         buffer.bpatch(true_list, m1->value());
@@ -290,6 +295,12 @@ namespace AST {
         buffer.emit(cmd.str());
         string end_label = buffer.genLabel();
         buffer.bpatch(false_list, end_label);
+        auto break_continue = dynamic_cast<BreakContinueMixin*>(statement.get());
+        if(break_continue) {
+            auto [break_list, continue_list] = break_continue->getBreakContinueLists();
+            buffer.bpatch(break_list, end_label);
+            buffer.bpatch(continue_list, declaration->label_to_bool_exp);
+        }
         children.push_back(move(decl->children.front()));
         children.push_back(move(statement));
     }
@@ -304,9 +315,16 @@ namespace AST {
             output::errorUnexpectedContinue(yylineno);
             exit(1);
         }
+        int loc = CodeBuffer::instance().emit("br label @");
+        if(break_or_continue == "break") {
+            this->break_list = CodeBuffer::makelist({loc, FIRST});
+        } else {
+            this->continue_list = CodeBuffer::makelist({loc, FIRST});
+        }
+
     }
 
-    StatementSwitchNode::StatementSwitchNode(unique_ptr<Node> decl, unique_ptr<Node> case_list) : Node(Type::VOID,
+    StatementSwitchNode::StatementSwitchNode(unique_ptr<Node> decl, unique_ptr<Node> n, unique_ptr<Node> case_list) : Node(Type::VOID,
                                                                                                        "switch statement") {
         children.push_back(move(decl->children.front()));
         children.push_back(move(case_list));
@@ -413,6 +431,11 @@ namespace AST {
         }
 
         stringstream cmd;
+        if(type_list[0] != Type::VOID) {
+            string new_reg = CodeGen::getRegisterName();
+            cmd << new_reg << " = ";
+            this->result_reg = new_reg;
+        }
         cmd << "call " << type_llvm[static_cast<int>(type_list[0])] << " (" << type_list_str << ") @" << id_node->name << "(" << arg_list.str() << ")";
         buffer.emit(cmd.str());
         children.push_back(move(id_node));
@@ -540,8 +563,16 @@ namespace AST {
             return this->name;
         } else if (this->type == Type::STRING) {
             return this->global_variable;
+        } else if(this->type == Type::BOOL ) {
+            return this->name == "true" ? "1" : "0";
         }
         throw std::logic_error("literal is not from permitted type");
+    }
+
+    pair<BackpatchList, BackpatchList> LiteralNode::getBackpatchLists() {
+        if(this->type != Type::BOOL )
+            throw std::logic_error("called getBackpatchLists() on non-bool value");
+        return CodeGen::getListsFromBool(this->value());
     }
 
     NotNode::NotNode(unique_ptr<Node> exp) : Node(Type::BOOL, "Not") {
@@ -549,7 +580,7 @@ namespace AST {
             output::errorMismatch(yylineno);
             exit(1);
         }
-        std::tie(this->true_list, this->false_list) = pair{this->false_list, this->true_list};
+        std::tie(this->false_list, this->true_list) = exp->getBackpatchLists();
         children.push_back(move(exp));
     }
 
@@ -557,23 +588,40 @@ namespace AST {
         return CodeGen::getBoolFromLists(true_list, false_list);
     }
 
+    pair<BackpatchList, BackpatchList> NotNode::getBackpatchLists() {
+        return { true_list, false_list};
+    }
+
     CaseListNode::CaseListNode(unique_ptr<Node> case_decl) : Node(Type::VOID, "Case List for switch block") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(case_decl.get());
         children.push_back(move(case_decl));
     }
 
     CaseListNode::CaseListNode(unique_ptr<Node> case_decl, unique_ptr<Node> case_list) : Node(Type::VOID,
                                                                                               "Case List for switch block") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(case_decl.get(), case_list.get());
         children.push_back(move(case_decl));
         for (auto &child : case_list->children) {
             children.push_back(move(child));
         }
     }
 
-    DefaultCaseNode::DefaultCaseNode(unique_ptr<Node> statements) : Node(Type::VOID, "default case") {
+    DefaultCaseNode::DefaultCaseNode(unique_ptr<Node> M, unique_ptr<Node> statements) : Node(Type::VOID, "default case") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statements.get());
+        auto &buffer = CodeBuffer::instance();
+        this->label = M->value();
+        int loc = buffer.emit("br label @");
+        this->next = CodeBuffer::makelist({loc, FIRST});
         children.push_back(move(statements));
     }
 
-    CaseDeclNode::CaseDeclNode(unique_ptr<Node> statements) : Node(Type::VOID, "case declaration") {
+    CaseDeclNode::CaseDeclNode(unique_ptr<Node> num_node, unique_ptr<Node> M, unique_ptr<Node> statements) : Node(Type::VOID, "case declaration") {
+        std::tie(this->break_list, this->continue_list) = BreakContinueMixin::getListsFromNode(statements.get());
+        auto &buffer = CodeBuffer::instance();
+        this->label = M->value();
+        this->num = num_node->value();
+        int loc = buffer.emit("br label @");
+        this->next = CodeBuffer::makelist({loc, FIRST});
         for (auto &child : statements->children) {
             children.push_back(move(child));
         }
@@ -630,5 +678,34 @@ namespace AST {
     pair<BackpatchList, BackpatchList> Node::getBackpatchLists() {
         throw std::logic_error("bad call to getBackpatchLists()");
 //        return {};
+    }
+
+    pair<BackpatchList, BackpatchList> BreakContinueMixin::getBreakContinueLists() {
+        return { break_list, continue_list };
+    }
+
+    pair<BackpatchList, BackpatchList> BreakContinueMixin::getListsFromNode(Node *node) {
+        auto break_or_continue = dynamic_cast<BreakContinueMixin*>(node);
+        if(break_or_continue) {
+            return break_or_continue->getBreakContinueLists();
+        } else {
+            return {};
+        }
+    }
+
+    pair<BackpatchList, BackpatchList> BreakContinueMixin::getListsFromNode(Node *node1, Node *node2) {
+        auto break_or_continue1 = dynamic_cast<BreakContinueMixin*>(node1);
+        auto break_or_continue2 = dynamic_cast<BreakContinueMixin*>(node2);
+        BackpatchList break_list{};
+        BackpatchList continue_list{};
+        if(break_or_continue1) {
+            std::tie(break_list, continue_list) = break_or_continue1->getBreakContinueLists();
+        }
+        if(break_or_continue2) {
+            auto [other_break_list, other_continue_list] = break_or_continue2->getBreakContinueLists();
+            break_list = CodeBuffer::merge(break_list, other_break_list);
+            continue_list = CodeBuffer::merge(continue_list, other_continue_list);
+        }
+        return {break_list, continue_list};
     }
 }

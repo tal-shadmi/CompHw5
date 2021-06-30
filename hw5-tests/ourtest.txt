@@ -1,14 +1,16 @@
 int mein(byte c) {
-	byte a = c;
-	while(a < 15){
-		printi(a);
-		a = a + 1b;
+	switch (c) {
+		case 1: printi(1); break;
+		case 2: printi(2);
+		case 3: printi(3); break;
+		case 4: printi(4);
+		default: printi(0);
 	}
-	return a;
+	return c;
 }
 
 void main() {
-	mein(3b);
+	mein(5b);
 	return;
 }
 

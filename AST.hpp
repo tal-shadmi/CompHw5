@@ -31,6 +31,16 @@ namespace AST {
         virtual pair<BackpatchList, BackpatchList> getBackpatchLists();
     };
 
+    class BreakContinueMixin {
+    protected:
+        BackpatchList break_list;
+        BackpatchList continue_list;
+    public:
+        pair<BackpatchList, BackpatchList> getBreakContinueLists();
+        static pair<BackpatchList, BackpatchList> getListsFromNode(Node *node);
+        static pair<BackpatchList, BackpatchList> getListsFromNode(Node *node1, Node *node2);
+    };
+
     class ProgramNode : public Node {
         public:
         explicit ProgramNode(unique_ptr<Node> funcs);
@@ -52,7 +62,7 @@ namespace AST {
 
     class FuncsImplNode : public Node {
         public:
-        FuncsImplNode(unique_ptr<Node> decl_node, unique_ptr<Node> statements);
+        FuncsImplNode(unique_ptr<Node> sign_node, unique_ptr<Node> statements);
         ~FuncsImplNode() override = default;
     };
 
@@ -83,14 +93,14 @@ namespace AST {
         ~FormalDeclNode() override = default;
     };
 
-    class StatementsNode : public Node {
+    class StatementsNode : public Node, public BreakContinueMixin {
         public:
         explicit StatementsNode(unique_ptr<Node> Statement);
         StatementsNode(unique_ptr<Node> Statements, unique_ptr<Node> Statement);
         ~StatementsNode() override = default;
     };
 
-    class StatementsToStatementNode : public Node {
+    class StatementsToStatementNode : public Node, public BreakContinueMixin {
         public:
         explicit StatementsToStatementNode(unique_ptr<Node> Statements);
         ~StatementsToStatementNode() override = default;
@@ -129,15 +139,15 @@ namespace AST {
         ~StatementWhileNode() override = default;
     };
 
-    class StatementBreakContinue : public Node {
+    class StatementBreakContinue : public Node, public BreakContinueMixin {
         public:
         explicit StatementBreakContinue(const string &break_or_continue);
         ~StatementBreakContinue() override = default;
     };
 
-    class StatementSwitchNode : public Node {
+    class StatementSwitchNode : public Node, public BreakContinueMixin {
         public:
-        StatementSwitchNode(unique_ptr<Node> exp, unique_ptr<Node> case_list);
+        StatementSwitchNode(unique_ptr<Node> decl, unique_ptr<Node> n, unique_ptr<Node> case_list);
         ~StatementSwitchNode() override = default;
     };
 
@@ -237,6 +247,7 @@ namespace AST {
         LiteralNode(string name, Type type);
         ~LiteralNode() override = default;
         string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
     class NotNode : public Node {
@@ -246,24 +257,30 @@ namespace AST {
         explicit NotNode(unique_ptr<Node> exp);
         ~NotNode() override = default;
         string value() override;
+        pair<BackpatchList, BackpatchList> getBackpatchLists() override;
     };
 
-    class CaseListNode : public Node {
+    class CaseListNode : public Node, public BreakContinueMixin {
     public:
         explicit CaseListNode(unique_ptr<Node> case_decl);
         CaseListNode(unique_ptr<Node> case_decl, unique_ptr<Node> case_list);
         ~CaseListNode() override = default;
     };
 
-    class DefaultCaseNode : public Node {
+    class DefaultCaseNode : public Node, public BreakContinueMixin {
     public:
-        explicit DefaultCaseNode(unique_ptr<Node> statements);
+        string label;
+        BackpatchList next;
+        explicit DefaultCaseNode(unique_ptr<Node> M, unique_ptr<Node> statements);
         ~DefaultCaseNode() override = default;
     };
 
-    class CaseDeclNode : public Node {
+    class CaseDeclNode : public Node, public BreakContinueMixin {
     public:
-        explicit CaseDeclNode(unique_ptr<Node> statements);
+        string num;
+        string label;
+        BackpatchList next;
+        explicit CaseDeclNode(unique_ptr<Node> num_node, unique_ptr<Node> M, unique_ptr<Node> statements);
         ~CaseDeclNode() override = default;
     };
 
